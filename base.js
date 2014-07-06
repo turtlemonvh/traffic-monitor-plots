@@ -45,12 +45,40 @@ function(d3, msgBus, $filter) {
 	        msgBus.emitMsg('fileupload:status', {
 	          status: "Start parsing"
 	        });
-			self.data = d3.csv.parseRows(reader.result);
+
+	        // https://github.com/mbostock/d3/wiki/Time-Formatting
+	        // (e.g.) 20130523 10:15:00
+	        var dateFormat = d3.time.format("%Y%m%d %X");
+
+	        // May want to switch to pre-calculating more data
+	        // (e.g.) date as integer 1-365, time in 15 minute blocks
+	        // See http://dc-js.github.io/dc.js/docs/stock.html#section-8
+			function getDOY(dateObj) {
+				var onejan = new Date(dateObj.getFullYear(),0,1);
+				return Math.ceil((dateObj - onejan) / 86400000);
+			}
+			function getMinutesBin(dateObj) {
+				return 15*Math.round((dateObj.getHours()*60 + dateObj.getMinutes())/15);
+			}
+
+			self.data = d3.csv.parseRows(reader.result, function(row){
+				var date = dateFormat.parse(row[1] + " " + row[3] + ":00");
+				return {
+					route: row[0], // string
+					date: date,
+					dayOfWeek: +row[2], // integer; 0 is Monday
+					dayOfYear: +getDOY(date),
+					timeOfDay: +getMinutesBin(date), // 15 min bins
+					duration: +row[4] // integer time
+				}
+			});
 
 			// Final status
 		    msgBus.emitMsg('fileupload:status', {
 		        status: "Done parsing: " + $filter('number')(self.data.length, 0) + " rows"
 	        });
+
+	        // console.log(self.data)
 		};
 	}
 
@@ -89,3 +117,28 @@ function($scope, dataFilter, msgBus){
 	}
 
 }]);
+
+trafficPlots.directive('trafficCharts', ['dataFilter',
+function(dataFilter){
+	return {
+		restrict: 'E',
+		templateUrl: 'dataViz.html',
+		link: function(scope, element, attrs) {
+			// eventually use scope to switch which location to use
+
+			// See example
+			// http://dc-js.github.io/dc.js/docs/stock.html
+			// Data should stay in service so table and other features can be managed with angular
+			// e.g. update current avg # display with angular
+
+			// Bar charts
+			// https://github.com/dc-js/dc.js/blob/master/web/docs/api-1.6.0.md#bar-chart
+			var timeOfDayChart = dc.barChart("#time-of-day");
+			var timeOfYearChart = dc.barChart("#time-of-year");
+			var dayOfWeekChart = dc.rowChart("#day-of-week");
+
+			var timeDistributionChart = dc.barChart("#time-distribution");
+
+		}
+	}
+}])
