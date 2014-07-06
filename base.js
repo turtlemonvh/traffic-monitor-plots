@@ -53,6 +53,7 @@ function(d3, msgBus, $filter) {
 	        // May want to switch to pre-calculating more data
 	        // (e.g.) date as integer 1-365, time in 15 minute blocks
 	        // See http://dc-js.github.io/dc.js/docs/stock.html#section-8
+	        // DOY function from: http://javascript.about.com/library/bldayyear.htm
 			function getDOY(dateObj) {
 				var onejan = new Date(dateObj.getFullYear(),0,1);
 				return Math.ceil((dateObj - onejan) / 86400000);
