@@ -65,6 +65,9 @@ function(d3, crossfilter, msgBus, $filter, $q) {
                 var onejan = new Date(dateObj.getFullYear(),0,1);
                 return Math.ceil((dateObj - onejan) / 86400000);
             }
+            function DOYtoDate(ndays) {
+                return new Date(zeroTime.getTime() + ndays*24*60*60*1000);
+            }
             function getMinutesBin(dateObj) {
                 var nminutes = nminPerBin*Math.round((dateObj.getHours()*60 + dateObj.getMinutes())/nminPerBin)
                 return new Date(zeroTime.getTime() + nminutes*60*1000);
@@ -76,8 +79,8 @@ function(d3, crossfilter, msgBus, $filter, $q) {
                     route: row[0], // string
                     date: date,
                     dayOfWeek: +row[2], // integer; 0 is Monday
-                    dayOfYear: +getDOY(date), // integer
-                    timeOfDay: getMinutesBin(date), // date objects
+                    dayOfYear: DOYtoDate(getDOY(date)), // date object
+                    timeOfDay: getMinutesBin(date), // date object
                     duration: +row[4] // integer time
                 }
             });
@@ -185,6 +188,7 @@ function(dataFilter, dc){
             // Formatters
             var numberFormat = d3.format(".2f");
             var dayOfYearformat = d3.time.format("%B %e");
+            var timeOfYearFormat = d3.time.format("%b");
             var timeOfDayformat = d3.time.format("%I:%M %p");
 
             dataFilter.dataLoadComplete.then(function(){
@@ -232,11 +236,7 @@ function(dataFilter, dc){
                     .filterPrinter(function (filters) {
                         var filter = filters[0],
                             s = "";
-                        var startHours = Math.floor(filter[0]/60);
-                        var startMin = Math.round(filter[0] - startHours*60);
-                        var endHours = Math.floor(filter[1]/60);
-                        var endMin = Math.round(filter[1] - endHours*60);
-                        s += startHours + ":" + startMin + " -> " + endHours + ":" + endMin;
+                        s += timeOfDayformat(filter[0]) + " -> " + timeOfDayformat(filter[1]);
                         return s;
                     });
                 timeOfDayChart.yAxis().ticks(5);
@@ -251,21 +251,23 @@ function(dataFilter, dc){
                     .dimension(routesByDayOfYear)
                     .group(dayOfYearGroup)
                     .elasticY(true)
-                    .x(d3.scale.linear().domain([0,365]))
-                    .xAxisLabel('Day of Year')
+                    .x(d3.time.scale().domain([new Date(2014,0,1,0,0), new Date(2014,11,31,0,0)]))
+                    .round(d3.time.day.round)
+                    .xUnits(d3.time.days)
+                    .xAxisLabel('Time of Year')
                     .yAxisLabel('# Trips')
                     .renderHorizontalGridLines(true)
                     .filterPrinter(function (filters) {
                         var filter = filters[0],
                             s = "";
-                        var dateZero = new Date(0, 0, 1, 0, 0, 0, 0).getTime(); // Mon Jan 1, 1900
-                        var startDay = new Date(dateZero + filter[0]*24*3600*1000)
-                        var endDay = new Date(dateZero + filter[1]*24*3600*1000)
-                        s += dayOfYearformat(startDay) + " -> " + dayOfYearformat(endDay);
+                        s += dayOfYearformat(filter[0]) + " -> " + dayOfYearformat(filter[1]);
                         return s;
                     });
                 timeOfYearChart.yAxis().ticks(4);
-
+                timeOfYearChart.xAxis().ticks(d3.time.month, 1);
+                timeOfYearChart.xAxis().tickFormat(function(v){
+                    return timeOfYearFormat(v);
+                });
 
                 timeDistributionChart.width(600)
                     .height(300)
