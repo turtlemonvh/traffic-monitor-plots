@@ -17,3 +17,12 @@ div.right {
 div.full {
 	width: 100%;
 }
+
+.formatted-chart {
+	clear: both;
+	padding-left: 10px;
+}
+
+span.reset {
+	float: right;
+}
