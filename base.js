@@ -24,19 +24,19 @@ trafficPlots.factory('msgBus', ['$rootScope', function($rootScope) {
 // d3.csv.parseRows
 trafficPlots.service('dataFilter', ['d3', 'crossfilter', 'msgBus', '$filter', '$q',
 function(d3, crossfilter, msgBus, $filter, $q) {
-	var self = this;
+    var self = this;
 
-	this.filter = {};
-	this.dimensions = {};
+    this.filter = {};
+    this.dimensions = {};
 
-	var dataLoaded = $q.defer();
-	this.dataLoadComplete = dataLoaded.promise;
+    var dataLoaded = $q.defer();
+    this.dataLoadComplete = dataLoaded.promise;
 
-	this.parseFile = function() {
-		if (!self.file) {
-			alert('Problem parsing - no csv set');
-		}
-		var reader = new FileReader();
+    this.parseFile = function() {
+        if (!self.file) {
+            alert('Problem parsing - no csv set');
+        }
+        var reader = new FileReader();
         msgBus.emitMsg('fileupload:status', {
           status: "File added"
         });
@@ -44,243 +44,243 @@ function(d3, crossfilter, msgBus, $filter, $q) {
         msgBus.emitMsg('fileupload:status', {
           status: "Start reading"
         });
-		reader.readAsText(self.file);
+        reader.readAsText(self.file);
 
-		reader.onload = function(){
-			// Parsing status
-	        msgBus.emitMsg('fileupload:status', {
-	          status: "Start parsing"
-	        });
+        reader.onload = function(){
+            // Parsing status
+            msgBus.emitMsg('fileupload:status', {
+              status: "Start parsing"
+            });
 
-	        // https://github.com/mbostock/d3/wiki/Time-Formatting
-	        // (e.g.) 20130523 10:15:00
-	        var dateFormat = d3.time.format("%Y%m%d %X");
+            // https://github.com/mbostock/d3/wiki/Time-Formatting
+            // (e.g.) 20130523 10:15:00
+            var dateFormat = d3.time.format("%Y%m%d %X");
 
-	        // May want to switch to pre-calculating more data
-	        // (e.g.) date as integer 1-365, time in 15 minute blocks
-	        // See http://dc-js.github.io/dc.js/docs/stock.html#section-8
-	        // DOY function from: http://javascript.about.com/library/bldayyear.htm
-			function getDOY(dateObj) {
-				var onejan = new Date(dateObj.getFullYear(),0,1);
-				return Math.ceil((dateObj - onejan) / 86400000);
-			}
-			function getMinutesBin(dateObj) {
-				return 10*Math.round((dateObj.getHours()*60 + dateObj.getMinutes())/10);
-			}
+            // May want to switch to pre-calculating more data
+            // (e.g.) date as integer 1-365, time in 15 minute blocks
+            // See http://dc-js.github.io/dc.js/docs/stock.html#section-8
+            // DOY function from: http://javascript.about.com/library/bldayyear.htm
+            function getDOY(dateObj) {
+                var onejan = new Date(dateObj.getFullYear(),0,1);
+                return Math.ceil((dateObj - onejan) / 86400000);
+            }
+            function getMinutesBin(dateObj) {
+                return 10*Math.round((dateObj.getHours()*60 + dateObj.getMinutes())/10);
+            }
 
-			self.data = d3.csv.parseRows(reader.result, function(row){
-				var date = dateFormat.parse(row[1] + " " + row[3] + ":00");
-				return {
-					route: row[0], // string
-					date: date,
-					dayOfWeek: +row[2], // integer; 0 is Monday
-					dayOfYear: +getDOY(date),
-					timeOfDay: +getMinutesBin(date), // 15 min bins
-					duration: +row[4] // integer time
-				}
-			});
+            self.data = d3.csv.parseRows(reader.result, function(row){
+                var date = dateFormat.parse(row[1] + " " + row[3] + ":00");
+                return {
+                    route: row[0], // string
+                    date: date,
+                    dayOfWeek: +row[2], // integer; 0 is Monday
+                    dayOfYear: +getDOY(date),
+                    timeOfDay: +getMinutesBin(date), // 15 min bins
+                    duration: +row[4] // integer time
+                }
+            });
 
-			var nrows = $filter('number')(self.data.length, 0);
+            var nrows = $filter('number')(self.data.length, 0);
 
-			// End parsing status
-		    msgBus.emitMsg('fileupload:status', {
-		        status: "Done parsing: " + nrows + " rows"
-	        });
+            // End parsing status
+            msgBus.emitMsg('fileupload:status', {
+                status: "Done parsing: " + nrows + " rows"
+            });
 
-		    self.createFilters();
+            self.createFilters();
 
-	        // console.log(self.data)
-		};
-	}
+            // console.log(self.data)
+        };
+    }
 
-	this.createFilters = function(){
-		// Set up crossfilter
-		self.filter = crossfilter(self.data);
+    this.createFilters = function(){
+        // Set up crossfilter
+        self.filter = crossfilter(self.data);
 
-		// Set up dimensions
-		self.dimensions.all = self.filter.groupAll();
+        // Set up dimensions
+        self.dimensions.all = self.filter.groupAll();
 
-		self.dimensions.routesByDuration = self.filter.dimension(function(d) { return d.duration; });
-		self.dimensions.durationGroup = self.dimensions.routesByDuration.group();
+        self.dimensions.routesByDuration = self.filter.dimension(function(d) { return d.duration; });
+        self.dimensions.durationGroup = self.dimensions.routesByDuration.group();
 
-		self.dimensions.routesByDayOfWeek = self.filter.dimension(function(d) {
-			var day = d.dayOfWeek;
-	        var name = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-	        return day + "." + name[day];
-		});
-		self.dimensions.dayOfWeekGroup = self.dimensions.routesByDayOfWeek.group();
+        self.dimensions.routesByDayOfWeek = self.filter.dimension(function(d) {
+            var day = d.dayOfWeek;
+            var name = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+            return day + "." + name[day];
+        });
+        self.dimensions.dayOfWeekGroup = self.dimensions.routesByDayOfWeek.group();
 
-		self.dimensions.routesByDayOfYear = self.filter.dimension(function(d) { return d.dayOfYear; });
-		self.dimensions.dayOfYearGroup = self.dimensions.routesByDayOfYear.group();
+        self.dimensions.routesByDayOfYear = self.filter.dimension(function(d) { return d.dayOfYear; });
+        self.dimensions.dayOfYearGroup = self.dimensions.routesByDayOfYear.group();
 
-		self.dimensions.routesByTimeOfDay = self.filter.dimension(function(d) { return d.timeOfDay; });
-		self.dimensions.timeOfDayGroup = self.dimensions.routesByTimeOfDay.group();
+        self.dimensions.routesByTimeOfDay = self.filter.dimension(function(d) { return d.timeOfDay; });
+        self.dimensions.timeOfDayGroup = self.dimensions.routesByTimeOfDay.group();
 
 
-		var nrows = $filter('number')(self.filter.size(), 0);
-	    msgBus.emitMsg('fileupload:status', {
-	        status: "Filter inititalized: " + nrows + " rows"
-	    });
+        var nrows = $filter('number')(self.filter.size(), 0);
+        msgBus.emitMsg('fileupload:status', {
+            status: "Filter inititalized: " + nrows + " rows"
+        });
 
-	    // Notify that its done
-	    dataLoaded.resolve();
-	}
+        // Notify that its done
+        dataLoaded.resolve();
+    }
 }]);
 
 
 trafficPlots.controller('baseCtrl', ['$scope', 'dataFilter', 'msgBus', 
 function($scope, dataFilter, msgBus){
-	$scope.uploadedFile = {};
-	$scope.progress = "Waiting for file";
-	$scope.dataFilter = dataFilter;
+    $scope.uploadedFile = {};
+    $scope.progress = "Waiting for file";
+    $scope.dataFilter = dataFilter;
 
-	msgBus.onMsg('fileupload:status', function(event, data) {
-		$scope.progress = data.status;
-		$scope.$digest();
-	});
+    msgBus.onMsg('fileupload:status', function(event, data) {
+        $scope.progress = data.status;
+        $scope.$digest();
+    });
 
-	$scope.addFile = function($file, $event) {
-		// FlowFile object
-		// https://github.com/flowjs/flow.js#flowfile
-		$scope.uploadedFile = $file;
+    $scope.addFile = function($file, $event) {
+        // FlowFile object
+        // https://github.com/flowjs/flow.js#flowfile
+        $scope.uploadedFile = $file;
 
-		// HTML5 file object
-		// http://www.html5rocks.com/en/tutorials/file/dndfiles/#toc-reading-files
-	    if (!$file.file.name.match(/.*(csv)$/)) {
-	        alert('Invalid file type uploaded')
-	        $scope.uploadedFile = {};
-	        return;
-	    }
+        // HTML5 file object
+        // http://www.html5rocks.com/en/tutorials/file/dndfiles/#toc-reading-files
+        if (!$file.file.name.match(/.*(csv)$/)) {
+            alert('Invalid file type uploaded')
+            $scope.uploadedFile = {};
+            return;
+        }
 
-	    // Set file and read in data
-	    dataFilter.file = $file.file;
-		dataFilter.parseFile();
-	}
+        // Set file and read in data
+        dataFilter.file = $file.file;
+        dataFilter.parseFile();
+    }
 
 }]);
 
 trafficPlots.directive('trafficCharts', ['dataFilter', 'dc',
 function(dataFilter, dc){
-	return {
-		restrict: 'E',
-		templateUrl: 'dataViz.html',
-		link: function(scope, element, attrs) {
-			// eventually use scope to switch which route to use
+    return {
+        restrict: 'E',
+        templateUrl: 'dataViz.html',
+        link: function(scope, element, attrs) {
+            // eventually use scope to switch which route to use
 
-			// See example
-			// http://dc-js.github.io/dc.js/docs/stock.html
-			// Data should stay in service so table and other features can be managed with angular
-			// e.g. update current avg # display with angular
+            // See example
+            // http://dc-js.github.io/dc.js/docs/stock.html
+            // Data should stay in service so table and other features can be managed with angular
+            // e.g. update current avg # display with angular
 
-			// Bar charts and row charts
-			// https://github.com/dc-js/dc.js/blob/master/web/docs/api-1.6.0.md#bar-chart
-			var timeOfDayChart = dc.barChart("#time-of-day");
-			var timeOfYearChart = dc.barChart("#time-of-year");
-			var dayOfWeekChart = dc.rowChart("#day-of-week");
-			var timeDistributionChart = dc.barChart("#time-distribution");
-			var totalCount = dc.dataCount("#total-count");
+            // Bar charts and row charts
+            // https://github.com/dc-js/dc.js/blob/master/web/docs/api-1.6.0.md#bar-chart
+            var timeOfDayChart = dc.barChart("#time-of-day");
+            var timeOfYearChart = dc.barChart("#time-of-year");
+            var dayOfWeekChart = dc.rowChart("#day-of-week");
+            var timeDistributionChart = dc.barChart("#time-distribution");
+            var totalCount = dc.dataCount("#total-count");
 
-			// Formatters
-			var numberFormat = d3.format(".2f");
-			var dayOfYearformat = d3.time.format("%B %e");
+            // Formatters
+            var numberFormat = d3.format(".2f");
+            var dayOfYearformat = d3.time.format("%B %e");
 
-			dataFilter.dataLoadComplete.then(function(){
-				// Grab local versions of all dimensions for convenience with naming
-				var dayOfWeekGroup = dataFilter.dimensions.dayOfWeekGroup;
-				var routesByDayOfWeek = dataFilter.dimensions.routesByDayOfWeek;
+            dataFilter.dataLoadComplete.then(function(){
+                // Grab local versions of all dimensions for convenience with naming
+                var dayOfWeekGroup = dataFilter.dimensions.dayOfWeekGroup;
+                var routesByDayOfWeek = dataFilter.dimensions.routesByDayOfWeek;
 
-				var timeOfDayGroup = dataFilter.dimensions.timeOfDayGroup;
-				var routesByTimeOfDay = dataFilter.dimensions.routesByTimeOfDay;
+                var timeOfDayGroup = dataFilter.dimensions.timeOfDayGroup;
+                var routesByTimeOfDay = dataFilter.dimensions.routesByTimeOfDay;
 
-				var dayOfYearGroup = dataFilter.dimensions.dayOfYearGroup;
-				var routesByDayOfYear = dataFilter.dimensions.routesByDayOfYear;
+                var dayOfYearGroup = dataFilter.dimensions.dayOfYearGroup;
+                var routesByDayOfYear = dataFilter.dimensions.routesByDayOfYear;
 
-				var durationGroup = dataFilter.dimensions.durationGroup;
-				var routesByDuration = dataFilter.dimensions.routesByDuration;
+                var durationGroup = dataFilter.dimensions.durationGroup;
+                var routesByDuration = dataFilter.dimensions.routesByDuration;
 
-				// Charts
-			    totalCount
-			        .dimension(dataFilter.filter)
-			        .group(dataFilter.dimensions.all);
+                // Charts
+                totalCount
+                    .dimension(dataFilter.filter)
+                    .group(dataFilter.dimensions.all);
 
-			    dayOfWeekChart.width(180)
-			        .height(180)
-			        .margins({top: 20, left: 10, right: 10, bottom: 20})
-			        .group(dayOfWeekGroup)
-			        .dimension(routesByDayOfWeek)
-			        .label(function (d) {
-			            return d.key.split(".")[1];
-			        })
-			        .elasticX(true)
-			        .xAxis().ticks(4);
+                dayOfWeekChart.width(180)
+                    .height(180)
+                    .margins({top: 20, left: 10, right: 10, bottom: 20})
+                    .group(dayOfWeekGroup)
+                    .dimension(routesByDayOfWeek)
+                    .label(function (d) {
+                        return d.key.split(".")[1];
+                    })
+                    .elasticX(true)
+                    .xAxis().ticks(4);
 
-			    timeOfDayChart.width(420)
-			        .height(180)
-			        .margins({top: 10, right: 50, bottom: 30, left: 60})
-			        .dimension(routesByTimeOfDay)
-			        .group(timeOfDayGroup)
-			        .elasticY(true)
-			        .x(d3.scale.linear().domain([0,1440]))
-			        .xAxisLabel('Time of Day')
-			        .yAxisLabel('# Trips')
-			        .renderHorizontalGridLines(true)
-			        .filterPrinter(function (filters) {
-			            var filter = filters[0],
-			            	s = "";
-			            var startHours = Math.floor(filter[0]/60);
-			            var startMin = Math.round(filter[0] - startHours*60);
-			            var endHours = Math.floor(filter[1]/60);
-			            var endMin = Math.round(filter[1] - endHours*60);
-			            s += startHours + ":" + startMin + " -> " + endHours + ":" + endMin;
-			            return s;
-			        });
-			    timeOfDayChart.yAxis().ticks(5);
+                timeOfDayChart.width(420)
+                    .height(180)
+                    .margins({top: 10, right: 50, bottom: 30, left: 60})
+                    .dimension(routesByTimeOfDay)
+                    .group(timeOfDayGroup)
+                    .elasticY(true)
+                    .x(d3.scale.linear().domain([0,1440]))
+                    .xAxisLabel('Time of Day')
+                    .yAxisLabel('# Trips')
+                    .renderHorizontalGridLines(true)
+                    .filterPrinter(function (filters) {
+                        var filter = filters[0],
+                            s = "";
+                        var startHours = Math.floor(filter[0]/60);
+                        var startMin = Math.round(filter[0] - startHours*60);
+                        var endHours = Math.floor(filter[1]/60);
+                        var endMin = Math.round(filter[1] - endHours*60);
+                        s += startHours + ":" + startMin + " -> " + endHours + ":" + endMin;
+                        return s;
+                    });
+                timeOfDayChart.yAxis().ticks(5);
 
-			    timeOfYearChart.width(420)
-			        .height(180)
-			        .margins({top: 10, right: 50, bottom: 30, left: 60})
-			        .dimension(routesByDayOfYear)
-			        .group(dayOfYearGroup)
-			        .elasticY(true)
-			        .x(d3.scale.linear().domain([0,365]))
-			        .xAxisLabel('Day of Year')
-			        .yAxisLabel('# Trips')
-			        .renderHorizontalGridLines(true)
-			        .filterPrinter(function (filters) {
-			            var filter = filters[0],
-			            	s = "";
-			            var dateZero = new Date(0, 0, 1, 0, 0, 0, 0).getTime(); // Mon Jan 1, 1900
-			            var startDay = new Date(dateZero + filter[0]*24*3600*1000)
-			            var endDay = new Date(dateZero + filter[1]*24*3600*1000)
-			            s += dayOfYearformat(startDay) + " -> " + dayOfYearformat(endDay);
-			            return s;
-			        });
-			    timeOfYearChart.yAxis().ticks(4);
+                timeOfYearChart.width(420)
+                    .height(180)
+                    .margins({top: 10, right: 50, bottom: 30, left: 60})
+                    .dimension(routesByDayOfYear)
+                    .group(dayOfYearGroup)
+                    .elasticY(true)
+                    .x(d3.scale.linear().domain([0,365]))
+                    .xAxisLabel('Day of Year')
+                    .yAxisLabel('# Trips')
+                    .renderHorizontalGridLines(true)
+                    .filterPrinter(function (filters) {
+                        var filter = filters[0],
+                            s = "";
+                        var dateZero = new Date(0, 0, 1, 0, 0, 0, 0).getTime(); // Mon Jan 1, 1900
+                        var startDay = new Date(dateZero + filter[0]*24*3600*1000)
+                        var endDay = new Date(dateZero + filter[1]*24*3600*1000)
+                        s += dayOfYearformat(startDay) + " -> " + dayOfYearformat(endDay);
+                        return s;
+                    });
+                timeOfYearChart.yAxis().ticks(4);
 
 
-			    timeDistributionChart.width(600)
-			        .height(300)
-			        .margins({top: 10, right: 50, bottom: 30, left: 60})
-			        .dimension(routesByDuration)
-			        .group(durationGroup)
-			        .elasticY(true)
-			        .x(d3.scale.linear().domain([0,240])) // up to 4 hours
-			        .renderHorizontalGridLines(true)
-			        .xAxisLabel('Duration (min)')
-			        .yAxisLabel('# Trips')
-			        .filterPrinter(function (filters) {
-			            var filter = filters[0],
-			            	s = "";
-			            s += numberFormat(filter[0]) + " min -> " + numberFormat(filter[1]) + " min";
-			            return s;
-			        });
-			    timeDistributionChart.yAxis().ticks(5);
+                timeDistributionChart.width(600)
+                    .height(300)
+                    .margins({top: 10, right: 50, bottom: 30, left: 60})
+                    .dimension(routesByDuration)
+                    .group(durationGroup)
+                    .elasticY(true)
+                    .x(d3.scale.linear().domain([0,240])) // up to 4 hours
+                    .renderHorizontalGridLines(true)
+                    .xAxisLabel('Duration (min)')
+                    .yAxisLabel('# Trips')
+                    .filterPrinter(function (filters) {
+                        var filter = filters[0],
+                            s = "";
+                        s += numberFormat(filter[0]) + " min -> " + numberFormat(filter[1]) + " min";
+                        return s;
+                    });
+                timeDistributionChart.yAxis().ticks(5);
 
-			    // Kick it off
-			    dc.renderAll();
-			    dc.redrawAll();
-			});
+                // Kick it off
+                dc.renderAll();
+                dc.redrawAll();
+            });
 
-		}
-	}
+        }
+    }
 }])
