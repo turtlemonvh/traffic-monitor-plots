@@ -52,20 +52,22 @@ function(d3, crossfilter, msgBus, $filter, $q) {
               status: "Start parsing"
             });
 
+            // Format for parsing dates
             // https://github.com/mbostock/d3/wiki/Time-Formatting
             // (e.g.) 20130523 10:15:00
             var dateFormat = d3.time.format("%Y%m%d %X");
 
-            // May want to switch to pre-calculating more data
-            // (e.g.) date as integer 1-365, time in 15 minute blocks
-            // See http://dc-js.github.io/dc.js/docs/stock.html#section-8
+            // Date manipulation
             // DOY function from: http://javascript.about.com/library/bldayyear.htm
+            var nminPerBin = 10; // 10 min bins
+            var zeroTime = new Date(2014,0,1,0,0); // midnight on Jan 1st
             function getDOY(dateObj) {
                 var onejan = new Date(dateObj.getFullYear(),0,1);
                 return Math.ceil((dateObj - onejan) / 86400000);
             }
             function getMinutesBin(dateObj) {
-                return 10*Math.round((dateObj.getHours()*60 + dateObj.getMinutes())/10);
+                var nminutes = nminPerBin*Math.round((dateObj.getHours()*60 + dateObj.getMinutes())/nminPerBin)
+                return new Date(zeroTime.getTime() + nminutes*60*1000);
             }
 
             self.data = d3.csv.parseRows(reader.result, function(row){
@@ -74,8 +76,8 @@ function(d3, crossfilter, msgBus, $filter, $q) {
                     route: row[0], // string
                     date: date,
                     dayOfWeek: +row[2], // integer; 0 is Monday
-                    dayOfYear: +getDOY(date),
-                    timeOfDay: +getMinutesBin(date), // 15 min bins
+                    dayOfYear: +getDOY(date), // integer
+                    timeOfDay: getMinutesBin(date), // date objects
                     duration: +row[4] // integer time
                 }
             });
@@ -183,6 +185,7 @@ function(dataFilter, dc){
             // Formatters
             var numberFormat = d3.format(".2f");
             var dayOfYearformat = d3.time.format("%B %e");
+            var timeOfDayformat = d3.time.format("%I:%M %p");
 
             dataFilter.dataLoadComplete.then(function(){
                 // Grab local versions of all dimensions for convenience with naming
@@ -203,7 +206,7 @@ function(dataFilter, dc){
                     .dimension(dataFilter.filter)
                     .group(dataFilter.dimensions.all);
 
-                dayOfWeekChart.width(180)
+                dayOfWeekChart.width(300)
                     .height(180)
                     .margins({top: 20, left: 10, right: 10, bottom: 20})
                     .group(dayOfWeekGroup)
@@ -214,13 +217,15 @@ function(dataFilter, dc){
                     .elasticX(true)
                     .xAxis().ticks(4);
 
-                timeOfDayChart.width(420)
+                timeOfDayChart.width(600)
                     .height(180)
                     .margins({top: 10, right: 50, bottom: 30, left: 60})
                     .dimension(routesByTimeOfDay)
                     .group(timeOfDayGroup)
                     .elasticY(true)
-                    .x(d3.scale.linear().domain([0,1440]))
+                    .x(d3.time.scale().domain([new Date(2014,0,1,0,0), new Date(2014,0,1,23,59)]))
+                    .round(d3.time.minute.round)
+                    .xUnits(d3.time.minutes)
                     .xAxisLabel('Time of Day')
                     .yAxisLabel('# Trips')
                     .renderHorizontalGridLines(true)
@@ -235,8 +240,12 @@ function(dataFilter, dc){
                         return s;
                     });
                 timeOfDayChart.yAxis().ticks(5);
+                timeOfDayChart.xAxis().ticks(d3.time.hour, 3);
+                timeOfDayChart.xAxis().tickFormat(function(v){
+                    return timeOfDayformat(v);
+                });
 
-                timeOfYearChart.width(420)
+                timeOfYearChart.width(600)
                     .height(180)
                     .margins({top: 10, right: 50, bottom: 30, left: 60})
                     .dimension(routesByDayOfYear)
