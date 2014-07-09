@@ -9,7 +9,7 @@ Serve the files with a file server (needed to avoid crossdomain issues).  For ex
 
 Then you can play with the visualization at [http://localhost:8080/](http://localhost:8080/)
 
-Start by uploading a csv.  The visualization will be created and you can drag filters to play with it.
+Start by uploading a csv file created by [the traffic monitor tool](https://github.com/turtlemonvh/traffic-monitor/).  The visualization will be created and you can drag filters to play with it.
 
 Right now it expects all rows to be the same route.  If this is not the case, filter with something like this:
 
