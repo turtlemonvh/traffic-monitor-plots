@@ -1,5 +1,7 @@
 # Traffic Monitor Plotting Tool
 
+*Note: These plotting tools are now being maintained on [the gh-pages branch of the "traffic monitor" repo](https://github.com/turtlemonvh/traffic-monitor/tree/gh-pages).*
+
 ## Use
 
 Serve the files with a file server (needed to avoid crossdomain issues).  For example, with python
